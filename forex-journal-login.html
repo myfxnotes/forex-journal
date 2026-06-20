@@ -337,11 +337,12 @@ function MainApp({ session, onLogout }) {
   };
 
   const handleEdit = trade=>{ setForm({...trade, pnl: trade.pnl ?? "", image: trade.image||""}); setEditId(trade.id); setShowForm(true); setTab("journal"); };
-  const handleDelete = async id=>{
-    if(confirm("ลบเทรดนี้?")){
-      const { error } = await supabase.from("trades").delete().eq("id", id);
-      if(!error){ showToast("🗑 ลบแล้ว"); loadTrades(); }
-    }
+  const [pendingDelete,setPendingDelete]=useState(null);
+  const handleDelete = id=>{ setPendingDelete(id); };
+  const confirmDelete = async ()=>{
+    const { error } = await supabase.from("trades").delete().eq("id", pendingDelete);
+    if(!error){ showToast("🗑 ลบแล้ว"); loadTrades(); }
+    setPendingDelete(null);
   };
 
   const pnlColor=v=>parseFloat(v)>0?"#3fb950":parseFloat(v)<0?"#f85149":"#8b949e";
