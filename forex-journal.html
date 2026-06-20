@@ -300,7 +300,9 @@ function App() {
     setForm(initialForm);setShowForm(false);showToast("✅ บันทึกเทรดแล้ว!");
   };
   const handleEdit=trade=>{setForm({...trade});setEditId(trade.id);setShowForm(true);setTab("journal");};
-  const handleDelete=id=>{if(confirm("ลบเทรดนี้?")){setTrades(ts=>ts.filter(t=>t.id!==id));showToast("🗑 ลบแล้ว");}};
+  const [pendingDelete,setPendingDelete]=useState(null);
+  const handleDelete=id=>{setPendingDelete(id);};
+  const confirmDelete=()=>{setTrades(ts=>ts.filter(t=>t.id!==pendingDelete));showToast("🗑 ลบแล้ว");setPendingDelete(null);};
   const pnlColor=v=>parseFloat(v)>0?"#3fb950":parseFloat(v)<0?"#f85149":"#8b949e";
   const usedPairs=["ทั้งหมด",...Array.from(new Set(trades.map(t=>t.pair)))];
   const equityCurve=useMemo(()=>{let cum=0;return filtered.filter(t=>t.pnl!=="").map((t,i)=>{cum+=parseFloat(t.pnl||0);return{i:i+1,v:cum};});},[filtered]);
@@ -316,6 +318,19 @@ function App() {
       {lightboxImg&&(
         <div onClick={()=>setLightboxImg(null)} style={{ position:"fixed",inset:0,background:"#000c",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center" }}>
           <img src={lightboxImg} style={{ maxWidth:"95vw",maxHeight:"90vh",borderRadius:8 }}/>
+        </div>
+      )}
+
+      {pendingDelete!==null&&(
+        <div style={{ position:"fixed",inset:0,background:"#000c",zIndex:101,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+          <div style={{ background:"#0d1117",border:"1px solid #21262d",borderRadius:12,padding:24,maxWidth:320,width:"100%",textAlign:"center" }}>
+            <div style={{ fontSize:32,marginBottom:10 }}>🗑</div>
+            <div style={{ fontSize:15,fontWeight:600,marginBottom:18 }}>ลบเทรดนี้?</div>
+            <div style={{ display:"flex",gap:10,justifyContent:"center" }}>
+              <button onClick={()=>setPendingDelete(null)} style={{ background:"#21262d",border:"none",borderRadius:8,color:"#e6edf3",padding:"9px 20px",fontSize:13,fontWeight:600,cursor:"pointer" }}>ยกเลิก</button>
+              <button onClick={confirmDelete} style={{ background:"#da3633",border:"none",borderRadius:8,color:"#fff",padding:"9px 20px",fontSize:13,fontWeight:600,cursor:"pointer" }}>ลบ</button>
+            </div>
+          </div>
         </div>
       )}
 
