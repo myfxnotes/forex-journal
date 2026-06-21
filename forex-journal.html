@@ -479,8 +479,11 @@ function App() {
               <div key={f.name}>
                 <div style={{ color:"#8b949e",fontSize:11,marginBottom:4 }}>{f.label}</div>
                 {f.type==="select"
-                  ?<select name={f.name} value={form[f.name]} onChange={handleChange} style={INPUT}>{f.options.map(o=><option key={o}>{o}</option>)}</select>
+                  ?<select name={f.name} value={f.name==="pair"&&!PAIRS.includes(form[f.name])?"อื่นๆ":form[f.name]} onChange={f.name==="pair"?e=>{ if(e.target.value==="อื่นๆ") setForm(fm=>({...fm,pair:""})); else setForm(fm=>({...fm,pair:e.target.value})); }:handleChange} style={INPUT}>{f.options.map(o=><option key={o}>{o}</option>)}</select>
                   :<input name={f.name} type={f.type} value={form[f.name]} onChange={handleChange} placeholder={f.placeholder} style={INPUT}/>}
+                {f.name==="pair"&&!PAIRS.includes(form.pair)&&(
+                  <input name="pair" type="text" value={form.pair} onChange={handleChange} placeholder="พิมพ์คู่เงินเอง เช่น USD/THB" style={{ ...INPUT, marginTop:6 }}/>
+                )}
               </div>
             ))}
           </div>
