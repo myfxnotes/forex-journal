@@ -22,14 +22,14 @@ const { useState, useMemo, useEffect, useRef } = React;
 const PAIRS = ["EUR/USD","GBP/USD","USD/JPY","USD/CHF","AUD/USD","USD/CAD","NZD/USD","EUR/GBP","EUR/JPY","GBP/JPY","XAU/USD","BTC/USD","US100","อื่นๆ"];
 const SESSIONS = ["London","New York","Tokyo","Sydney","Overlap"];
 const DIRECTIONS = ["Buy","Sell"];
-const FIELDS = ["date","pair","direction","session","entry","exit","sl","tp","lots","pnl","note","image"];
+const FIELDS = ["date","pair","direction","session","entry","exit","sl","tp","lots","pnl","note","images"];
 const DAYS_TH = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 const MONTHS_TH = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 
 const initialForm = {
   date: new Date().toISOString().split("T")[0],
   pair:"EUR/USD", direction:"Buy", session:"London",
-  entry:"", exit:"", sl:"", tp:"", lots:"", pnl:"", note:"", image:"",
+  entry:"", exit:"", sl:"", tp:"", lots:"", pnl:"", note:"", image:"", images:[],
 };
 
 function StatCard({ label, value, sub, color }) {
@@ -349,7 +349,10 @@ function App() {
 
   const exportCSV = () => {
     const header = FIELDS.join(",");
-    const rows = trades.map(t=>FIELDS.map(f=>`"${(t[f]||"").toString().replace(/"/g,'""')}"`).join(","));
+    const rows = trades.map(t=>FIELDS.map(f=>{
+      let val = f==="images" ? (Array.isArray(t.images)?t.images.join("|||"):(t.image||"")) : (t[f]||"");
+      return `"${val.toString().replace(/"/g,'""')}"`;
+    }).join(","));
     const csv=[header,...rows].join("\n");
     const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob);
@@ -370,6 +373,8 @@ function App() {
           const vals=line.match(/("([^"]|"")*"|[^,]*)/g).map(v=>v.replace(/^"|"$/g,"").replace(/""/g,'"'));
           const obj={id:Date.now()+Math.random()};
           headers.forEach((h,i)=>{obj[h.trim()]=vals[i]||"";});
+          if(obj.images) obj.images = obj.images.split("|||").filter(Boolean);
+          else obj.images = [];
           return obj;
         });
         if(confirm(`พบ ${imported.length} เทรด นำเข้าไหม?`)){
@@ -382,10 +387,13 @@ function App() {
   };
 
   const handleImageUpload = e => {
-    const file=e.target.files[0]; if(!file) return;
-    const reader=new FileReader();
-    reader.onload=ev=>setForm(f=>({...f,image:ev.target.result}));
-    reader.readAsDataURL(file);
+    const files=Array.from(e.target.files||[]); if(files.length===0) return;
+    files.forEach(file=>{
+      const reader=new FileReader();
+      reader.onload=ev=>setForm(f=>({...f,images:[...(f.images||[]),ev.target.result]}));
+      reader.readAsDataURL(file);
+    });
+    e.target.value="";
   };
 
   const filtered = useMemo(()=>filterPair==="ทั้งหมด"?trades:trades.filter(t=>t.pair===filterPair),[trades,filterPair]);
@@ -410,7 +418,7 @@ function App() {
     else setTrades(ts=>[{...form,id:Date.now()},...ts]);
     setForm(initialForm);setShowForm(false);showToast("✅ บันทึกเทรดแล้ว!");
   };
-  const handleEdit=trade=>{setForm({...trade});setEditId(trade.id);setShowForm(true);setTab("journal");};
+  const handleEdit=trade=>{setForm({...trade, images: (trade.images&&trade.images.length>0)?trade.images:(trade.image?[trade.image]:[])});setEditId(trade.id);setShowForm(true);setTab("journal");};
   const [pendingDelete,setPendingDelete]=useState(null);
   const handleDelete=id=>{setPendingDelete(id);};
   const confirmDelete=()=>{setTrades(ts=>ts.filter(t=>t.id!==pendingDelete));showToast("🗑 ลบแล้ว");setPendingDelete(null);};
@@ -492,13 +500,17 @@ function App() {
             <textarea name="note" value={form.note} onChange={handleChange} placeholder="ความคิดเห็น, เหตุผล, บทเรียน..." style={{ ...INPUT,height:60,resize:"vertical" }}/>
           </div>
           <div style={{ marginTop:10 }}>
-            <div style={{ color:"#8b949e",fontSize:11,marginBottom:6 }}>📸 แนบรูปกราฟ</div>
-            <input ref={imageRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display:"none" }}/>
+            <div style={{ color:"#8b949e",fontSize:11,marginBottom:6 }}>📸 แนบรูปกราฟ (เลือกได้หลายรูป)</div>
+            <input ref={imageRef} type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display:"none" }}/>
             <button onClick={()=>imageRef.current.click()} style={{ ...BTN,background:"#21262d",color:"#8b949e" }}>เลือกรูป</button>
-            {form.image&&(
-              <div style={{ marginTop:8,position:"relative",display:"inline-block" }}>
-                <img src={form.image} style={{ height:80,borderRadius:6,border:"1px solid #30363d",cursor:"pointer" }} onClick={()=>setLightboxImg(form.image)}/>
-                <button onClick={()=>setForm(f=>({...f,image:""}))} style={{ position:"absolute",top:-6,right:-6,background:"#f85149",border:"none",borderRadius:"50%",width:20,height:20,color:"#fff",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
+            {(form.images&&form.images.length>0)&&(
+              <div style={{ marginTop:8,display:"flex",gap:8,flexWrap:"wrap" }}>
+                {form.images.map((img,i)=>(
+                  <div key={i} style={{ position:"relative",display:"inline-block" }}>
+                    <img src={img} style={{ height:80,width:80,objectFit:"cover",borderRadius:6,border:"1px solid #30363d",cursor:"pointer" }} onClick={()=>setLightboxImg(img)}/>
+                    <button onClick={()=>setForm(f=>({...f,images:f.images.filter((_,idx)=>idx!==i)}))} style={{ position:"absolute",top:-6,right:-6,background:"#f85149",border:"none",borderRadius:"50%",width:20,height:20,color:"#fff",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -545,7 +557,13 @@ function App() {
                     {t.lots&&<span style={{ marginLeft:10 }}>Lots: <b style={{ color:"#e6edf3" }}>{t.lots}</b></span>}
                   </div>
                   {t.pnl!==""&&<div style={{ fontWeight:700,fontSize:16,color:pnlColor(t.pnl) }}>{parseFloat(t.pnl)>0?"+":""}{parseFloat(t.pnl).toFixed(2)}$</div>}
-                  {t.image&&<img src={t.image} onClick={()=>setLightboxImg(t.image)} style={{ width:"100%",maxHeight:160,objectFit:"cover",borderRadius:8,cursor:"pointer",border:"1px solid #30363d" }}/>}
+                  {(()=>{ const imgs=(t.images&&t.images.length>0)?t.images:(t.image?[t.image]:[]); return imgs.length>0&&(
+                    <div style={{ width:"100%",display:"flex",gap:8,flexWrap:"wrap" }}>
+                      {imgs.map((img,i)=>(
+                        <img key={i} src={img} onClick={()=>setLightboxImg(img)} style={{ width:imgs.length===1?"100%":120,maxHeight:160,objectFit:"cover",borderRadius:8,cursor:"pointer",border:"1px solid #30363d" }}/>
+                      ))}
+                    </div>
+                  ); })()}
                   {t.note&&<div style={{ width:"100%",fontSize:12,color:"#8b949e",borderTop:"1px solid #21262d",paddingTop:8 }}>💬 {t.note}</div>}
                   <div style={{ display:"flex",gap:6 }}>
                     <button onClick={()=>handleEdit(t)} style={{ background:"#21262d",border:"none",borderRadius:6,color:"#8b949e",padding:"4px 10px",fontSize:12,cursor:"pointer" }}>✏️ แก้ไข</button>
